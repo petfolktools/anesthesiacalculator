@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Petfolk Veterinary - Anesthesia Drug Calculator & Protocol</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { background-color: white !important; padding: 0 !important; font-size: 10px; color: #000 !important; }
+      .print-shadow-none { box-shadow: none !important; border: 1px solid #94a3b8 !important; }
+      .print-page-break { page-break-inside: avoid; }
+      
+      /* Crisp checkbox rendering for physical paper printing */
+      input[type="checkbox"] {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border: 1.5px solid #1e293b !important;
+        border-radius: 2px;
+        display: inline-grid;
+        place-content: center;
+        background-color: transparent !important;
+      }
+      input[type="checkbox"]:checked::before {
+        content: "✔";
+        font-size: 11px;
+        font-weight: bold;
+        color: #0f172a;
+      }
+      select, input[type="text"], input[type="number"] {
+        border-color: #cbd5e1 !important;
+        background: transparent !important;
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 p-3 sm:p-6 font-sans text-slate-800">
+
+  <div class="max-w-6xl mx-auto space-y-5">
+
+    <!-- Top Action Bar -->
+    <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-3 print-shadow-none">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Petfolk Veterinary & Urgent Care</h1>
+        <p class="text-xs sm:text-sm text-slate-500 font-medium">Anesthesia Drug Calculation & Surgical Protocol Record</p>
+      </div>
+      <div class="flex items-center gap-2 no-print">
+        <button onclick="window.print()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-sm flex items-center gap-2 transition">
+          <span>🖨️</span> Print Protocol & Checklist
+        </button>
+      </div>
+    </div>
+
+    <!-- Patient Header Card -->
+    <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 print-shadow-none">
+      <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3 text-xs">
+        <div class="col-span-2">
+          <label class="font-bold text-slate-600 uppercase text-[10px]">Patient Name</label>
+          <input type="text" id="patientName" placeholder="e.g. Luna" class="w-full mt-1 p-2 border border-slate-300 rounded font-semibold focus:ring-2 focus:ring-indigo-400">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600 uppercase text-[10px]">Species</label>
+          <select id="species" onchange="recalculateAll()" class="w-full mt-1 p-2 border border-slate-300 rounded bg-white font-semibold">
+            <option value="Canine" selected>Canine</option>
+            <option value="Feline">Feline</option>
+          </select>
+        </div>
+        <div class="bg-amber-50 p-2 rounded-lg border border-amber-300 col-span-1">
+          <label class="font-bold text-amber-900 uppercase text-[10px]">Weight (lb) *</label>
+          <input type="number" step="0.1" id="weightLb" oninput="onLbChange()" placeholder="30" class="w-full mt-0.5 p-1.5 border border-amber-400 rounded font-bold text-base bg-white">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600 uppercase text-[10px]">Weight (kg)</label>
+          <input type="number" step="0.01" id="weightKg" oninput="onKgChange()" placeholder="13.64" class="w-full mt-1 p-2 border border-slate-300 rounded font-bold bg-slate-50">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600 uppercase text-[10px]">Procedure</label>
+          <input type="text" id="procedure" placeholder="e.g. CAST" class="w-full mt-1 p-2 border border-slate-300 rounded font-semibold">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600 uppercase text-[10px]">DVM</label>
+          <input type="text" id="dvm" placeholder="Dr. Himmelberg" class="w-full mt-1 p-2 border border-slate-300 rounded font-semibold">
+        </div>
+        <div>
+          <label class="font-bold text-slate-600 uppercase text-[10px]">Tech</label>
+          <input type="text" id="tech" placeholder="AC" class="w-full mt-1 p-2 border border-slate-300 rounded font-semibold">
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Patient Protocol (Selected Medications List) -->
+    <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-indigo-200 print-shadow-none print-page-break">
+      <div class="flex justify-between items-center mb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse no-print"></span>
+          <h2 class="text-sm sm:text-base font-bold text-slate-900 uppercase tracking-wide">
+            Selected Patient Protocol & Administration Record
+          </h2>
+          <span id="selectedCount" class="text-xs bg-indigo-100 text-indigo-800 font-semibold px-2 py-0.5 rounded-full">0 Drugs</span>
+        </div>
+        <button onclick="clearSelectedDrugs()" class="text-xs text-rose-600 hover:text-rose-800 font-semibold no-print">
+          Clear Selected
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-200 text-[10px]">
+              <th class="p-2">Medication & Concentration</th>
+              <th class="p-2">Stage / Type</th>
+              <th class="p-2 text-center">Dose Range</th>
+              <th class="p-2 text-center bg-indigo-50/70 text-indigo-900">Target Vol (mL)</th>
+              <th class="p-2">Route</th>
+              <th class="p-2">Admin Dose (mL)</th>
+              <th class="p-2">Time Administered</th>
+              <th class="p-2 text-center no-print">Action</th>
+            </tr>
+          </thead>
+          <tbody id="protocolTableBody" class="divide-y divide-slate-100">
+            <tr id="emptyRow">
+              <td colspan="8" class="p-6 text-center text-slate-400 italic">
+                No medications selected yet. Browse the catalog below and click <b>"+ Add"</b>.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Equipment & Fluids Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 print-page-break">
+      <!-- Breathing Circuit & Reservoir Bag -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-xs space-y-2 print-shadow-none">
+        <div class="font-bold text-slate-700 uppercase border-b pb-1 flex justify-between text-[11px]">
+          <span>🫁 Breathing Circuit & Equipment</span>
+          <span id="circuitBadge" class="text-blue-700 font-bold">-</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div><span class="text-slate-500">Reservoir Bag:</span> <b id="resBag" class="text-slate-900">-</b></div>
+          <div><span class="text-slate-500">Maintenance O₂ Rate:</span> <b id="o2Rate" class="text-slate-900">-</b></div>
+        </div>
+      </div>
+      <!-- IV Fluids -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 text-xs space-y-2 print-shadow-none">
+        <div class="font-bold text-slate-700 uppercase border-b pb-1 flex justify-between text-[11px]">
+          <span>💧 IV Fluid Guidelines</span>
+          <span class="text-emerald-700 font-bold">Lean Body Weight</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div><span class="text-slate-500">Crystalloid (3-5 mL/kg/hr):</span> <b id="crysRate" class="text-slate-900">-</b></div>
+          <div><span class="text-slate-500">Bolus (5-10 mL/kg):</span> <b id="crysBolus" class="text-slate-900">-</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anesthetic Procedure Checklist -->
+    <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 print-shadow-none print-page-break">
+      <div class="flex justify-between items-center border-b border-slate-200 pb-2 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-base">📋</span>
+          <h2 class="text-xs sm:text-sm font-bold text-slate-900 uppercase tracking-wide">
+            Anesthetic Procedure & Safety Checklist
+          </h2>
+        </div>
+        <button onclick="resetChecklist()" class="text-xs text-slate-400 hover:text-slate-600 font-semibold no-print">
+          Reset Checklist
+        </button>
+      </div>
+
+      <!-- 4-Column Checklist Grid matching Master Sheet -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+        
+        <!-- Column 1: Pre-Op Safety -->
+        <div class="space-y-2.5 sm:border-r border-slate-200 pr-2">
+          <div class="font-bold uppercase tracking-wider text-[10px] text-indigo-700">1. Pre-Op Prep</div>
+          
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_species" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Species Toggled</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_cart" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Anesthesia Cart Leak Tested / Crash Cart Reviewed</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_consent" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Estimate / Consent Forms Signed</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_ivc_placed" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>IVC Placed</span>
+          </label>
+        </div>
+
+        <!-- Column 2: Clinical Evaluation & Vascular Access -->
+        <div class="space-y-2.5 sm:border-r border-slate-200 pr-2">
+          <div class="font-bold uppercase tracking-wider text-[10px] text-indigo-700">2. Clinical Exam</div>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_weight_lb" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Weight in POUNDS Verified</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_pe" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Physical Exam Complete</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_labs" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Labs Reviewed</span>
+          </label>
+
+          <div class="pt-1">
+            <label class="block text-[10px] font-bold text-slate-600 uppercase">IVC Size & Location:</label>
+            <input type="text" id="ivc_location" placeholder="e.g. 20g R Cephalic" 
+              class="w-full mt-0.5 p-1 border border-slate-300 rounded text-xs bg-slate-50 focus:bg-white font-medium">
+          </div>
+        </div>
+
+        <!-- Column 3: Post-Op Care -->
+        <div class="space-y-2.5 sm:border-r border-slate-200 pr-2">
+          <div class="font-bold uppercase tracking-wider text-[10px] text-indigo-700">3. Post-Op / Diagnostics</div>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_meds_filled" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Post-Op Medications Filled</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_parent_contacted" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Pet Parent Contacted for Discharge</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_diagnostics" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Additional Diagnostics Ordered</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_notes" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Surgical Notes Complete</span>
+          </label>
+        </div>
+
+        <!-- Column 4: Final Discharge -->
+        <div class="space-y-2.5">
+          <div class="font-bold uppercase tracking-wider text-[10px] text-indigo-700">4. Final Discharge</div>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_ivc_removed" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>IVC Removed</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_bandage_removed" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Bandage Removed</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_invoice" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Invoice Ready</span>
+          </label>
+
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" id="chk_discharge_sent" class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-0">
+            <span>Discharge Sent</span>
+          </label>
+        </div>
+
+      </div>
+
+      <!-- Printed Sign-off lines for physical paper charts -->
+      <div class="mt-4 pt-3 border-t border-slate-200 grid grid-cols-2 sm:grid-cols-4 gap-4 text-[11px] text-slate-600">
+        <div>Tech Initials: <span class="border-b border-slate-400 inline-block w-24"></span></div>
+        <div>Extubation Time: <span class="border-b border-slate-400 inline-block w-20"></span></div>
+        <div>Total IV Fluids (TVI): <span class="border-b border-slate-400 inline-block w-16"></span> mL</div>
+        <div>DVM Signature: <span class="border-b border-slate-400 inline-block w-28"></span></div>
+      </div>
+    </div>
+
+    <!-- Master Drug Formulary Catalog (Source List - Hidden during printing) -->
+    <div class="bg-white p-4 sm:p-5 rounded-xl shadow-sm border border-slate-200 no-print">
+      <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+        <div>
+          <h2 class="text-base font-bold text-slate-900">Drug Formulary Master Catalog</h2>
+          <p class="text-xs text-slate-500">Click "+ Add" on any medication to place it into the patient's active protocol table above.</p>
+        </div>
+        <!-- Category Filter Tabs -->
+        <div class="flex flex-wrap gap-1 text-xs" id="categoryFilters">
+          <button onclick="filterCategory('ALL', this)" class="cat-btn active bg-slate-800 text-white px-3 py-1.5 rounded-lg font-medium transition">All</button>
+          <button onclick="filterCategory('Emergency', this)" class="cat-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition">Emergency / ALS</button>
+          <button onclick="filterCategory('Reversal', this)" class="cat-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition">Reversals</button>
+          <button onclick="filterCategory('Anesthesia', this)" class="cat-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition">Anesthesia & Sedation</button>
+          <button onclick="filterCategory('Blocks', this)" class="cat-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition">Local Blocks</button>
+          <button onclick="filterCategory('Antibiotic', this)" class="cat-btn bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1.5 rounded-lg font-medium transition">Antibiotics</button>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 uppercase font-bold border-b border-slate-200 text-[10px]">
+              <th class="p-2.5">Category</th>
+              <th class="p-2.5">Medication & Concentration</th>
+              <th class="p-2.5">Dose Range</th>
+              <th class="p-2.5 text-center">Calculated Min</th>
+              <th class="p-2.5 text-center">Calculated Max</th>
+              <th class="p-2.5 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="catalogTableBody" class="divide-y divide-slate-100">
+            <!-- Populated via JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Complete Master Formulary
+    const DRUG_CATALOG = [
+      // Emergency / ALS / Anti-Arrhythmic / Vasopressor
+      { id: 'atropine_04', cat: 'Emergency', name: 'Atropine (0.4mg/ml)', conc: 0.4, minDose: 0.02, maxDose: 0.04, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Emergency' },
+      { id: 'atropine_054', cat: 'Emergency', name: 'Atropine (0.54mg/ml)', conc: 0.54, minDose: 0.02, maxDose: 0.04, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Emergency' },
+      { id: 'diphenhydramine', cat: 'Emergency', name: 'Diphenhydramine (50mg/ml) - max 1.0ml', conc: 50, minDose: 1.0, maxDose: 2.2, maxCapMl: 1.0, unit: 'mg/kg', defaultRoute: 'IM', defaultStage: 'Pre-med' },
+      { id: 'ephedrine', cat: 'Emergency', name: 'Ephedrine (50mg/ml)', conc: 50, minDose: 0.05, maxDose: 0.1, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Emergency' },
+      { id: 'glycopyrrolate', cat: 'Emergency', name: 'Glycopyrrolate (0.2mg/ml)', conc: 0.2, minDose: 0.005, maxDose: 0.01, unit: 'mg/kg', defaultRoute: 'IM/IV', defaultStage: 'Pre-med' },
+      { id: 'epinephrine', cat: 'Emergency', name: 'Epinephrine (1mg/ml)', conc: 1.0, minDose: 0.01, maxDose: 0.01, unit: 'mg/kg', defaultRoute: 'IV/IT', defaultStage: 'Emergency' },
+      { id: 'amiodarone', cat: 'Emergency', name: 'Amiodarone (50mg/ml)', conc: 50, minDose: 5.0, maxDose: 5.0, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Emergency' },
+      { id: 'lidocaine_iv', cat: 'Emergency', name: 'Lidocaine (20mg/ml) - Anti-Arrhythmic', conc: 20, minDose: 2.0, maxDose: 4.0, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Emergency' },
+      { id: 'dobutamine', cat: 'Emergency', name: 'Dobutamine (12.5mg/ml) **dilute**', conc: 12.5, minDose: 0.005, maxDose: 0.005, unit: 'mg/kg/min', defaultRoute: 'CRI', defaultStage: 'Emergency' },
+
+      // Reversal Agents
+      { id: 'atipamezole', cat: 'Reversal', name: 'Atipamezole (Antisedan) (5mg/ml)', conc: 5.0, minDose: 0.05, maxDose: 0.1, unit: 'mg/kg', defaultRoute: 'IM', defaultStage: 'Reversal' },
+      { id: 'flumazenil', cat: 'Reversal', name: 'Flumazenil (0.1mg/ml)', conc: 0.1, minDose: 0.01, maxDose: 0.01, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Reversal' },
+      { id: 'naloxone', cat: 'Reversal', name: 'Naloxone (0.4mg/ml)', conc: 0.4, minDose: 0.04, maxDose: 0.04, unit: 'mg/kg', defaultRoute: 'IV/IM', defaultStage: 'Reversal' },
+
+      // Anesthesia & Analgesia
+      { id: 'acepromazine', cat: 'Anesthesia', name: 'Acepromazine (10mg/ml)', conc: 10, minDose: 0.02, maxDose: 0.05, unit: 'mg/kg', defaultRoute: 'IM/SQ', defaultStage: 'Pre-med' },
+      { id: 'alfaxalone', cat: 'Anesthesia', name: 'Alfaxalone (10mg/ml)', conc: 10, minDose: 1.0, maxDose: 4.0, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Induction' },
+      { id: 'atipamazole_dex', cat: 'Reversal', name: 'Atipamazole (5mg/ml) (dex reversal)', conc: 5.0, minDose: 0.05, maxDose: 0.05, unit: 'mg/kg', defaultRoute: 'IM', defaultStage: 'Reversal' },
+      { id: 'buprenorphine_03', cat: 'Anesthesia', name: 'Buprenorphine (0.3mg/ml)', conc: 0.3, minDose: 0.005, maxDose: 0.02, unit: 'mg/kg', defaultRoute: 'IM/IV', defaultStage: 'Analgesia' },
+      { id: 'buprenorphine_05', cat: 'Anesthesia', name: 'Buprenorphine (0.5mg/ml)', conc: 0.5, minDose: 0.005, maxDose: 0.02, unit: 'mg/kg', defaultRoute: 'IM/IV', defaultStage: 'Analgesia' },
+      { id: 'butorphanol', cat: 'Anesthesia', name: 'Butorphanol (10mg/ml)', conc: 10, minDose: 0.2, maxDose: 0.4, unit: 'mg/kg', defaultRoute: 'IM/IV', defaultStage: 'Pre-med' },
+      { id: 'carprofen', cat: 'Anesthesia', name: 'Carprofen (50mg/ml) - SQ ONLY', conc: 50, minDose: 2.2, maxDose: 4.4, unit: 'mg/kg', defaultRoute: 'SQ', defaultStage: 'NSAID / Post-op' },
+      { id: 'dexmedetomidine', cat: 'Anesthesia', name: 'Dexmedetomidine (0.5mg/ml)', conc: 0.5, minDose: 0.002, maxDose: 0.005, unit: 'mg/kg', defaultRoute: 'IM/IV', defaultStage: 'Pre-med' },
+      { id: 'hydromorphone', cat: 'Anesthesia', name: 'Hydromorphone (2mg/ml)', conc: 2.0, minDose: 0.1, maxDose: 0.1, unit: 'mg/kg', defaultRoute: 'IM/IV', defaultStage: 'Pre-med' },
+      { id: 'ketamine', cat: 'Anesthesia', name: 'Ketamine (100mg/ml)', conc: 100, minDose: 1.0, maxDose: 2.0, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Induction' },
+      { id: 'maropitant', cat: 'Anesthesia', name: 'Maropitant Citrate (Cerenia) (10mg/ml)', conc: 10, minDose: 1.0, maxDose: 1.0, unit: 'mg/kg', defaultRoute: 'SQ/IV', defaultStage: 'Pre-med' },
+      { id: 'meloxicam', cat: 'Anesthesia', name: 'Meloxicam (5mg/ml)', conc: 5.0, minDose: 0.2, maxDose: 0.2, unit: 'mg/kg', defaultRoute: 'SQ', defaultStage: 'NSAID / Post-op' },
+      { id: 'midazolam', cat: 'Anesthesia', name: 'Midazolam (5mg/ml)', conc: 5.0, minDose: 0.1, maxDose: 0.3, unit: 'mg/kg', defaultRoute: 'IM/IV', defaultStage: 'Pre-med' },
+      { id: 'propofol', cat: 'Anesthesia', name: 'Propofol (10mg/ml)', conc: 10, minDose: 4.0, maxDose: 6.0, unit: 'mg/kg', defaultRoute: 'IV', defaultStage: 'Induction' },
+
+      // Local / Regional Blocks
+      { id: 'bupivacaine', cat: 'Blocks', name: 'Bupivacaine (5mg/ml) - max 1.5mg/kg', conc: 5.0, minDose: 1.0, maxDose: 2.0, maxCapDose: 1.5, unit: 'mg/kg', defaultRoute: 'Local Block', defaultStage: 'Local Block' },
+      { id: 'lidocaine_block', cat: 'Blocks', name: 'Lidocaine (20mg/ml) - LOCAL BLOCK', conc: 20, minDose: 1.0, maxDose: 4.0, unit: 'mg/kg', defaultRoute: 'Local Block', defaultStage: 'Local Block' },
+      { id: 'ropivacaine', cat: 'Blocks', name: 'Ropivacaine (5mg/ml) - max 3mg/kg', conc: 5.0, minDose: 3.0, maxDose: 3.0, maxCapDose: 3.0, unit: 'mg/kg', defaultRoute: 'Local Block', defaultStage: 'Local Block' },
+
+      // Antibiotics
+      { id: 'cefazolin', cat: 'Antibiotic', name: 'Cefazolin (100mg/ml) - slow IV', conc: 100, minDose: 22.0, maxDose: 22.0, unit: 'mg/kg', defaultRoute: 'IV (Slow)', defaultStage: 'Antibiotic' },
+      { id: 'convenia', cat: 'Antibiotic', name: 'Convenia (80mg/ml) - SQ ONLY', conc: 80, minDose: 8.0, maxDose: 8.0, unit: 'mg/kg', defaultRoute: 'SQ', defaultStage: 'Antibiotic' },
+      { id: 'metronidazole', cat: 'Antibiotic', name: 'Metronidazole (5mg/ml)', conc: 5.0, minDose: 15.0, maxDose: 15.0, unit: 'mg/kg', defaultRoute: 'IV (Slow)', defaultStage: 'Antibiotic' }
+    ];
+
+    let selectedDrugs = [];
+    let currentFilter = 'ALL';
+
+    window.onload = function() {
+      renderCatalog();
+    };
+
+    function onLbChange() {
+      const lb = parseFloat(document.getElementById('weightLb').value);
+      if (!isNaN(lb) && lb > 0) {
+        document.getElementById('weightKg').value = (lb / 2.20462).toFixed(2);
+        recalculateAll();
+      } else {
+        clearValues();
+      }
+    }
+
+    function onKgChange() {
+      const kg = parseFloat(document.getElementById('weightKg').value);
+      if (!isNaN(kg) && kg > 0) {
+        document.getElementById('weightLb').value = (kg * 2.20462).toFixed(1);
+        recalculateAll();
+      } else {
+        clearValues();
+      }
+    }
+
+    function getKg() {
+      const kg = parseFloat(document.getElementById('weightKg').value);
+      return (!isNaN(kg) && kg > 0) ? kg : 0;
+    }
+
+    function calculateMl(drug, kg, dose) {
+      if (!kg || kg <= 0) return '0.00';
+      let targetDose = dose;
+      if (drug.maxCapDose && targetDose > drug.maxCapDose) targetDose = drug.maxCapDose;
+      let ml = (kg * targetDose) / drug.conc;
+      if (drug.maxCapMl && ml > drug.maxCapMl) ml = drug.maxCapMl;
+      return ml.toFixed(2);
+    }
+
+    function recalculateAll() {
+      const kg = getKg();
+      renderCatalog();
+      renderProtocolTable();
+      updateEquipmentAndFluids(kg);
+    }
+
+    function updateEquipmentAndFluids(kg) {
+      if (kg <= 0) {
+        document.getElementById('circuitBadge').textContent = '-';
+        document.getElementById('resBag').textContent = '-';
+        document.getElementById('o2Rate').textContent = '-';
+        document.getElementById('crysRate').textContent = '-';
+        document.getElementById('crysBolus').textContent = '-';
+        return;
+      }
+
+      // Circuit logic
+      if (kg < 7) {
+        document.getElementById('circuitBadge').textContent = 'Non-Rebreathing Circuit (NRB)';
+      } else {
+        document.getElementById('circuitBadge').textContent = 'Adult Rebreathing Circuit (Blue)';
+      }
+
+      // Bag size
+      const tidal = kg * 15;
+      const bagVol = tidal * 6;
+      let bag = '1.0 L';
+      if (bagVol <= 500) bag = '0.5 L';
+      else if (bagVol <= 1000) bag = '1.0 L';
+      else if (bagVol <= 2000) bag = '2.0 L';
+      else bag = '3.0 L';
+      document.getElementById('resBag').textContent = bag;
+
+      // O2 flow rate
+      const minO2 = Math.max(0.5, (kg * 20 / 1000)).toFixed(2);
+      const maxO2 = Math.max(0.5, (kg * 30 / 1000)).toFixed(2);
+      document.getElementById('o2Rate').textContent = `${minO2} - ${maxO2} L/min (min 0.5)`;
+
+      // Fluid rates
+      document.getElementById('crysRate').textContent = `${(kg * 3).toFixed(1)} - ${(kg * 5).toFixed(1)} mL/hr`;
+      document.getElementById('crysBolus').textContent = `${(kg * 5).toFixed(1)} - ${(kg * 10).toFixed(1)} mL`;
+    }
+
+    function renderCatalog() {
+      const kg = getKg();
+      const tbody = document.getElementById('catalogTableBody');
+      tbody.innerHTML = '';
+
+      const filtered = DRUG_CATALOG.filter(d => currentFilter === 'ALL' || d.cat === currentFilter);
+
+      filtered.forEach(drug => {
+        const minMl = kg > 0 ? calculateMl(drug, kg, drug.minDose) : '-';
+        const maxMl = kg > 0 ? calculateMl(drug, kg, drug.maxDose) : '-';
+        const isSelected = selectedDrugs.some(s => s.id === drug.id);
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+        tr.innerHTML = `
+          <td class="p-2.5">
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${getCategoryBadgeStyle(drug.cat)}">${drug.cat}</span>
+          </td>
+          <td class="p-2.5 font-bold text-slate-800">${drug.name}</td>
+          <td class="p-2.5 text-slate-500 font-medium">${drug.minDose === drug.maxDose ? drug.minDose : `${drug.minDose} -${drug.maxDose}`} ${drug.unit}</td>
+          <td class="p-2.5 text-center font-bold text-slate-700">${minMl}</td>
+          <td class="p-2.5 text-center font-bold text-slate-700">${maxMl}</td>
+          <td class="p-2.5 text-center">
+            ${isSelected ? 
+              `<button disabled class="bg-slate-200 text-slate-400 text-xs font-semibold px-2.5 py-1 rounded cursor-not-allowed">Added</button>` : 
+              `<button onclick="addDrugToProtocol('${drug.id}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold px-3 py-1 rounded shadow-sm transition">+ Add</button>`
+            }
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function getCategoryBadgeStyle(cat) {
+      switch(cat) {
+        case 'Emergency': return 'bg-rose-100 text-rose-800 border border-rose-200';
+        case 'Reversal': return 'bg-amber-100 text-amber-800 border border-amber-200';
+        case 'Anesthesia': return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+        case 'Blocks': return 'bg-teal-100 text-teal-800 border border-teal-200';
+        case 'Antibiotic': return 'bg-blue-100 text-blue-800 border border-blue-200';
+        default: return 'bg-slate-100 text-slate-800 border border-slate-200';
+      }
+    }
+
+    function filterCategory(cat, btnElement) {
+      currentFilter = cat;
+      document.querySelectorAll('.cat-btn').forEach(btn => {
+        btn.classList.remove('active', 'bg-slate-800', 'text-white');
+        btn.classList.add('bg-slate-100', 'text-slate-700');
+      });
+      if (btnElement) {
+        btnElement.classList.add('active', 'bg-slate-800', 'text-white');
+        btnElement.classList.remove('bg-slate-100', 'text-slate-700');
+      }
+      renderCatalog();
+    }
+
+    function addDrugToProtocol(drugId) {
+      const drug = DRUG_CATALOG.find(d => d.id === drugId);
+      if (!drug) return;
+
+      selectedDrugs.push({
+        id: drug.id,
+        name: drug.name,
+        stage: drug.defaultStage,
+        route: drug.defaultRoute,
+        adminDose: '',
+        adminTime: ''
+      });
+
+      renderProtocolTable();
+      renderCatalog();
+    }
+
+    function removeDrugFromProtocol(drugId) {
+      selectedDrugs = selectedDrugs.filter(d => d.id !== drugId);
+      renderProtocolTable();
+      renderCatalog();
+    }
+
+    function clearSelectedDrugs() {
+      if (confirm('Clear all selected medications from the protocol?')) {
+        selectedDrugs = [];
+        renderProtocolTable();
+        renderCatalog();
+      }
+    }
+
+    function setTimeToNow(drugId) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+      const item = selectedDrugs.find(d => d.id === drugId);
+      if (item) {
+        item.adminTime = timeStr;
+        const inputEl = document.getElementById(`time_${drugId}`);
+        if (inputEl) inputEl.value = timeStr;
+      }
+    }
+
+    function updateProtocolField(drugId, field, value) {
+      const item = selectedDrugs.find(d => d.id === drugId);
+      if (item) {
+        item[field] = value;
+      }
+    }
+
+    function renderProtocolTable() {
+      const kg = getKg();
+      const tbody = document.getElementById('protocolTableBody');
+      const countEl = document.getElementById('selectedCount');
+      countEl.textContent = `${selectedDrugs.length} Drugs`;
+
+      if (selectedDrugs.length === 0) {
+        tbody.innerHTML = `
+          <tr id="emptyRow">
+            <td colspan="8" class="p-6 text-center text-slate-400 italic">
+              No medications selected yet. Browse the catalog below and click <b>"+ Add"</b>.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = '';
+      selectedDrugs.forEach(item => {
+        const drug = DRUG_CATALOG.find(d => d.id === item.id);
+        const minMl = kg > 0 ? calculateMl(drug, kg, drug.minDose) : '-';
+        const maxMl = kg > 0 ? calculateMl(drug, kg, drug.maxDose) : '-';
+        const targetStr = (minMl === maxMl) ? `${minMl} mL` : `${minMl} - ${maxMl} mL`;
+        const doseRangeStr = (drug.minDose === drug.maxDose) ? `${drug.minDose} ${drug.unit}` : `${drug.minDose}-${drug.maxDose} ${drug.unit}`;
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+        tr.innerHTML = `
+          <td class="p-2 font-bold text-slate-900">${item.name}</td>
+          
+          <td class="p-2">
+            <select onchange="updateProtocolField('${item.id}', 'stage', this.value)" class="p-1 border border-slate-300 rounded text-xs bg-white font-medium">
+              <option value="Pre-med" ${item.stage === 'Pre-med' ? 'selected' : ''}>Pre-med</option>
+              <option value="Induction" ${item.stage === 'Induction' ? 'selected' : ''}>Induction</option>
+              <option value="Maintenance" ${item.stage === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+              <option value="Local Block" ${item.stage === 'Local Block' ? 'selected' : ''}>Local Block</option>
+              <option value="Analgesia" ${item.stage === 'Analgesia' ? 'selected' : ''}>Analgesia</option>
+              <option value="Antibiotic" ${item.stage === 'Antibiotic' ? 'selected' : ''}>Antibiotic</option>
+              <option value="NSAID / Post-op" ${item.stage === 'NSAID / Post-op' ? 'selected' : ''}>NSAID / Post-op</option>
+              <option value="Reversal" ${item.stage === 'Reversal' ? 'selected' : ''}>Reversal</option>
+              <option value="Emergency" ${item.stage === 'Emergency' ? 'selected' : ''}>Emergency</option>
+            </select>
+          </td>
+
+          <td class="p-2 text-center text-slate-500 font-medium">${doseRangeStr}</td>
+
+          <td class="p-2 text-center font-black text-indigo-700 bg-indigo-50/50">${targetStr}</td>
+
+          <td class="p-2">
+            <select onchange="updateProtocolField('${item.id}', 'route', this.value)" class="p-1 border border-slate-300 rounded text-xs bg-white font-medium">
+              <option value="IV" ${item.route === 'IV' ? 'selected' : ''}>IV</option>
+              <option value="IM" ${item.route === 'IM' ? 'selected' : ''}>IM</option>
+              <option value="SQ" ${item.route === 'SQ' ? 'selected' : ''}>SQ</option>
+              <option value="IV (Slow)" ${item.route === 'IV (Slow)' ? 'selected' : ''}>IV (Slow)</option>
+              <option value="Local Block" ${item.route === 'Local Block' ? 'selected' : ''}>Local Block</option>
+              <option value="Epidural" ${item.route === 'Epidural' ? 'selected' : ''}>Epidural</option>
+              <option value="Oral" ${item.route === 'Oral' ? 'selected' : ''}>Oral</option>
+            </select>
+          </td>
+
+          <td class="p-2">
+            <input type="number" step="0.01" value="${item.adminDose}" placeholder="mL given" 
+              oninput="updateProtocolField('${item.id}', 'adminDose', this.value)"
+              class="w-20 p-1 border border-slate-300 rounded font-bold text-center focus:ring-1 focus:ring-indigo-400">
+          </td>
+
+          <td class="p-2">
+            <div class="flex items-center gap-1">
+              <input type="text" id="time_${item.id}" value="${item.adminTime}" placeholder="--:--" 
+                oninput="updateProtocolField('${item.id}', 'adminTime', this.value)"
+                class="w-20 p-1 border border-slate-300 rounded text-center font-medium">
+              <button onclick="setTimeToNow('${item.id}')" title="Set to current time" 
+                class="no-print bg-slate-100 hover:bg-slate-200 border border-slate-300 p-1 rounded text-xs transition">
+                ⏱️
+              </button>
+            </div>
+          </td>
+
+          <td class="p-2 text-center no-print">
+            <button onclick="removeDrugFromProtocol('${item.id}')" class="text-rose-500 hover:text-rose-700 p-1 font-bold text-sm" title="Remove">✕</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function resetChecklist() {
+      const ids = [
+        'chk_species', 'chk_cart', 'chk_consent', 'chk_ivc_placed',
+        'chk_weight_lb', 'chk_pe', 'chk_labs', 'chk_meds_filled',
+        'chk_parent_contacted', 'chk_diagnostics', 'chk_notes',
+        'chk_ivc_removed', 'chk_bandage_removed', 'chk_invoice', 'chk_discharge_sent'
+      ];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.checked = false;
+      });
+      const ivcInput = document.getElementById('ivc_location');
+      if (ivcInput) ivcInput.value = '';
+    }
+
+    function clearValues() {
+      selectedDrugs = [];
+      renderCatalog();
+      renderProtocolTable();
+      updateEquipmentAndFluids(0);
+    }
+  </script>
+</body>
+</html>
